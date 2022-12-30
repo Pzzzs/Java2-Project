@@ -18,72 +18,71 @@ import java.util.List;
 @Service
 public class DataService {
 
-    private final ContributorRepository contributorRepository;
-    private final IssueRepository issueRepository;
-    private final ReleaseRepository releaseRepository;
-    private final CommitRepository commitRepository;
+  private final ContributorRepository contributorRepository;
+  private final IssueRepository issueRepository;
+  private final ReleaseRepository releaseRepository;
+  private final CommitRepository commitRepository;
 
-    @Autowired
-    public DataService(ContributorRepository contributorRepository, IssueRepository issueRepository, ReleaseRepository releaseRepository, CommitRepository commitRepository) {
-        this.contributorRepository = contributorRepository;
-        this.issueRepository = issueRepository;
-        this.releaseRepository = releaseRepository;
-        this.commitRepository = commitRepository;
-    }
+  @Autowired
+  public DataService(ContributorRepository contributorRepository, IssueRepository issueRepository,
+                       ReleaseRepository releaseRepository, CommitRepository commitRepository) {
+    this.contributorRepository = contributorRepository;
+    this.issueRepository = issueRepository;
+    this.releaseRepository = releaseRepository;
+    this.commitRepository = commitRepository;
+  }
 
-    public List<Contributor> getContributors(){
+  public List<Contributor> getContributors(){
         return contributorRepository.findAll();
     }
-    public List<Issue> getIssues(){
+  public List<Issue> getIssues(){
         return issueRepository.findAll();
     }
-    public List<Release> getReleases(){
+  public List<Release> getReleases(){
         return releaseRepository.findAll();
     }
-    public List<Commit> getCommits(){
+  public List<Commit> getCommits(){
         return commitRepository.findAll();
     }
 
-    public void addContributors(String author,String repo){
-        try {
+  public void addContributors(String author,String repo){
+    try {
+      String temp = "https://api.github.com/repos/"+author+"/"+repo+"/contributors?per_page=100";
+      URL url = null;
+      url = new URL(temp);
+      HttpURLConnection connection = (HttpURLConnection)url.openConnection();
+      connection.connect();
+      BufferedReader bReader = new BufferedReader(
+              new InputStreamReader(connection.getInputStream(), "UTF-8"));
 
-            String temp = "https://api.github.com/repos/"+author+"/"+repo+"/contributors?per_page=100";
-            URL url = null;
-            url = new URL(temp);
-            HttpURLConnection connection = (HttpURLConnection)url.openConnection();
-            connection.connect();
-            BufferedReader bReader = new BufferedReader(
-                    new InputStreamReader(connection.getInputStream(), "UTF-8"));
+      String line = null;
+      StringBuilder stringBuilder = new StringBuilder();
+      while ((line = bReader.readLine()) != null) {
+        stringBuilder.append(line);
+      }
 
-            String line = null;
-            StringBuilder stringBuilder = new StringBuilder();
-            while ((line = bReader.readLine()) != null) {
-                stringBuilder.append(line);
-            }
+      bReader.close();
+      connection.disconnect();
+      JSONArray jsonArray = JSONArray.parseArray(stringBuilder.toString());
+      List<Contributor> contributorList= new ArrayList<>();
+      for (Object object : jsonArray){
+        JSONObject jsonObject = (JSONObject) object;
+        long id = jsonObject.getLong("id");
+        String name = jsonObject.getString("login");
+        int contributions = jsonObject.getInteger("contributions");
 
-            bReader.close();
-            connection.disconnect();
-//            System.out.println(stringBuilder.toString());
-            JSONArray jsonArray = JSONArray.parseArray(stringBuilder.toString());
-            List<Contributor> contributorList= new ArrayList<>();
-            for (Object object : jsonArray){
-                JSONObject jsonObject = (JSONObject) object;
-                long id = jsonObject.getLong("id");
-                String name = jsonObject.getString("login");
-                int contributions = jsonObject.getInteger("contributions");
+        Contributor contributor = new Contributor(id,name,contributions);
+        contributorList.add(contributor);
 
-                Contributor contributor = new Contributor(id,name,contributions);
-                contributorList.add(contributor);
+        //commit 数量前几位的 developers 信息
+        System.out.println(name+" "+contributions);
+      }
+      contributorRepository.saveAll(contributorList);
 
-                //commit 数量前几位的 developers 信息
-                System.out.println(name+" "+contributions);
-            }
-            contributorRepository.saveAll(contributorList);
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
     }
+  }
 
     public void addIssues(String author,String repo){
         try {
